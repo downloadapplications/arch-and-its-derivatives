@@ -1,0 +1,96 @@
+name: Daily Arch Pacman Sync
+on:
+  schedule:
+    - cron: '30 6 * * *' # Runs daily right after your Ubuntu sync
+  workflow_dispatch:
+
+jobs:
+  sync-pacman:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-cache: false
+
+      - name: Fetch, Extract, and Parse Arch Linux Extra DB
+        run: |
+          echo "Downloading official Arch Linux Extra repository database..."
+          # Fetch directly from a reliable, high-availability global mirror
+          curl -sL https://mirrors.kernel.org/archlinux/extra/os/x86_64/extra.db --output extra.db
+
+          echo "Running structural Tar/Gzip stream parser..."
+          node -e '
+          const fs = require("fs");
+          const zlib = require("zlib");
+          const tar = require("tar-stream");
+
+          // High-performance streaming decompression architecture
+          const extract = tar.extract();
+          const packagesMap = {};
+
+          extract.on("entry", (header, stream, next) => {
+            // We only care about the "desc" files inside each package folder
+            if (header.name.endsWith("/desc")) {
+              const chunks = [];
+              stream.on("data", (chunk) => chunks.push(chunk));
+              stream.on("end", () => {
+                const content = Buffer.concat(chunks).toString("utf-8");
+                parseArchDescFields(content);
+                next();
+              });
+            } else {
+              stream.resume();
+              next();
+            }
+          });
+
+          function parseArchDescFields(data) {
+            const lines = data.split("\n");
+            let currentField = "";
+            let pkg = {};
+
+            for (let line of lines) {
+              line = line.trim();
+              if (line.startsWith("%") && line.endsWith("%")) {
+                currentField = line.replace(/%/g, "").toLowerCase();
+                continue;
+              }
+              if (line === "") continue;
+
+              if (currentField === "name") pkg.name = line;
+              else if (currentField === "version") pkg.version = line;
+              else if (currentField === "desc") pkg.desc = line;
+              else if (currentField === "filename") pkg.filename = line;
+              else if (currentField === "csize") pkg.size = parseInt(line, 10) || 0;
+              else if (currentField === "url") pkg.url = line;
+            }
+
+            if (pkg.name && pkg.filename) {
+              packagesMap[pkg.name] = pkg;
+            }
+          }
+
+          extract.on("finish", () => {
+            const finalArray = Object.values(packagesMap);
+            fs.writeFileSync("pacman_packages.json", JSON.stringify(finalArray));
+            console.log(`Successfully compiled ${finalArray.length} official Arch binary records.`);
+          });
+
+          // Pipe the compressed file directly into the gunzipper and tar extractor
+          fs.createReadStream("extra.db")
+            .pipe(zlib.createGunzip())
+            .pipe(extract);
+          '
+          rm extra.db
+
+      - name: Push Optimized Matrix to Repository
+        run: |
+          git config --global user.name "PacmanDataBot"
+          git config --global user.email "bot@arch.explorer"
+          git add pacman_packages.json
+          git commit -m "Automated synchronization of official Arch Pacman Extra repo" || exit 0
+          git push
