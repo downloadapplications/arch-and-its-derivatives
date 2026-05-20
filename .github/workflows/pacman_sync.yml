@@ -39,13 +39,13 @@ jobs:
               name = ""; version = ""; desc = ""; filename = ""; size = 0; url = ""
               last_argind = ARGIND
             }
-            # Field string capture and sanitize illegal embedded double quotes
-            /%NAME%/     { getline; name = $0; gsub(/"/, "\\\"", name); next }
-            /%VERSION%/  { getline; version = $0; gsub(/"/, "\\\"", version); next }
-            /%DESC%/     { getline; desc = $0; gsub(/"/, "\\\"", desc); next }
-            /%FILENAME%/ { getline; filename = $0; gsub(/"/, "\\\"", filename); next }
+            # Field string capture and sanitize illegal embedded backslashes and double quotes
+            /%NAME%/     { getline; gsub(/\\/, "\\\\", $0); gsub(/"/, "\\\"", $0); name = $0; next }
+            /%VERSION%/  { getline; gsub(/\\/, "\\\\", $0); gsub(/"/, "\\\"", $0); version = $0; next }
+            /%DESC%/     { getline; gsub(/\\/, "\\\\", $0); gsub(/"/, "\\\"", $0); desc = $0; next }
+            /%FILENAME%/ { getline; gsub(/\\/, "\\\\", $0); gsub(/"/, "\\\"", $0); filename = $0; next }
             /%CSIZE%/    { getline; size = $0; next }
-            /%URL%/      { getline; url = $0; gsub(/"/, "\\\"", url); next }
+            /%URL%/      { getline; gsub(/\\/, "\\\\", $0); gsub(/"/, "\\\"", $0); url = $0; next }
             END {
               # Append the remaining trailing block securely
               if (name != "") {
