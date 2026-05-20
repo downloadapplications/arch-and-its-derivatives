@@ -349,24 +349,30 @@
 
 const calculatedPoolUrl = ARCH_MIRROR_ROOT + pkg.filename;
 
-            // Generate an explicit form element to handle cross-origin submission safely
-            const downloadForm = document.createElement('form');
-            downloadForm.method = 'GET';
-            downloadForm.action = calculatedPoolUrl;
-            downloadForm.style.display = 'inline-block';
-
-            // Use a true submission node inside the layout matching your styles
+            // Create a clean button that doesn't use form or link navigation properties
             const dlBtn = document.createElement('button');
-            dlBtn.type = 'submit';
+            dlBtn.type = 'button';
             dlBtn.className = 'btn-install';
             dlBtn.style.border = 'none';
+            dlBtn.style.cursor = 'pointer';
             dlBtn.textContent = "Download Signed Zst Binary";
 
-            downloadForm.appendChild(dlBtn);
+            // When clicked, we temporarily open a standalone isolated context to process the asset download
+            dlBtn.onclick = () => {
+                const hiddenAnchor = document.createElement('a');
+                hiddenAnchor.href = calculatedPoolUrl;
+                // Force target to an external frame context to prevent text rendering over your main view layout
+                hiddenAnchor.target = '_blank'; 
+                hiddenAnchor.rel = 'noopener noreferrer';
+                
+                document.body.appendChild(hiddenAnchor);
+                hiddenAnchor.click();
+                document.body.removeChild(hiddenAnchor);
+            };
 
             titleBlock.appendChild(h2);
             titleBlock.appendChild(metaRow);
-            titleBlock.appendChild(downloadForm);
+            titleBlock.appendChild(dlBtn);
             headerBlock.appendChild(bigIcon);
             headerBlock.appendChild(titleBlock);
 
