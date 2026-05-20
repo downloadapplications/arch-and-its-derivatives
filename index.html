@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arch Linux Pacman Package Browser</title>
+    <style>
+        :root {
+            --arch-bg: #1c1f26;
+            --arch-sidebar: #14161d;
+            --arch-card: #232834;
+            --arch-card-hover: #2b3140;
+            --arch-text: #f8f9fa;
+            --arch-muted: #8f9aa8;
+            --arch-cyan: #1793d1;
+            --arch-cyan-hover: #0f73a6;
+            --arch-border: rgba(23, 147, 209, 0.15);
+            --font-stack: "Cantarell", system-ui, -apple-system, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font-stack);
+            background-color: var(--arch-bg);
+            color: var(--arch-text);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .gtk-window { width: 100%; height: 100%; display: flex; flex-direction: column; }
+        
+        .gtk-headerbar {
+            height: 56px;
+            background-color: var(--arch-sidebar);
+            border-bottom: 2px solid var(--arch-cyan);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            flex-shrink: 0;
+        }
+
+        .header-title { font-weight: 700; font-size: 15px; letter-spacing: 0.5px; }
+
+        .search-container { position: relative; width: 400px; }
+        .search-input {
+            width: 100%;
+            background-color: #0b0c10;
+            border: 1px solid #2b3140;
+            color: #fff;
+            padding: 8px 12px 8px 36px;
+            border-radius: 4px;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-input:focus { border-color: var(--arch-cyan); }
+        .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--arch-muted); font-size: 14px; }
+
+        .window-content { flex: 1; display: flex; overflow: hidden; }
+        
+        .gtk-sidebar {
+            width: 260px;
+            background-color: var(--arch-sidebar);
+            border-right: 1px solid rgba(255,255,255,0.03);
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            overflow-y: auto;
+        }
+
+        .sidebar-item {
+            padding: 10px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--arch-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sidebar-item:hover { background-color: rgba(255,255,255,0.02); color: #fff; }
+        .sidebar-item.active { background-color: var(--arch-cyan); color: white; font-weight: 600; }
+
+        .app-count { font-size: 11px; background: rgba(0,0,0,0.4); padding: 2px 8px; border-radius: 4px; color: var(--arch-muted); }
+        .sidebar-item.active .app-count { color: white; background: rgba(0,0,0,0.2); }
+
+        .view-stack { flex: 1; overflow-y: auto; padding: 32px; background-color: var(--arch-bg); }
+        .apps-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+        
+        .app-card {
+            background-color: var(--arch-card);
+            border: 1px solid rgba(255,255,255,0.03);
+            border-radius: 4px;
+            padding: 16px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            cursor: pointer;
+        }
+        .app-card:hover { background-color: var(--arch-card-hover); border-color: var(--arch-border); }
+
+        .app-icon-fallback { width: 56px; height: 56px; border-radius: 4px; background-color: #14161d; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--arch-cyan); font-size: 20px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.05); }
+
+        .app-meta { flex: 1; min-width: 0; }
+        .app-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-summary { font-size: 12.5px; color: var(--arch-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-package-id { font-size: 11px; color: var(--arch-cyan); font-family: monospace; margin-top: 2px; }
+
+        .detail-view { display: none; flex-direction: column; gap: 24px; }
+        .detail-header { display: flex; align-items: center; gap: 24px; }
+        .detail-title-block h2 { font-size: 26px; font-weight: 700; margin-bottom: 4px; }
+        
+        .metadata-row { font-size: 13px; color: var(--arch-muted); margin-bottom: 12px; }
+
+        .btn-install {
+            background-color: var(--arch-cyan);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-install:hover { background-color: var(--arch-cyan-hover); }
+        
+        .btn-back { background-color: transparent; color: #fff; border: 1px solid #2b3140; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-bottom: 16px; align-self: flex-start; }
+        .btn-back:hover { background-color: rgba(255,255,255,0.03); }
+
+        .detail-body { font-size: 15px; line-height: 1.6; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 24px; color: #e0e0e0; }
+        .status-message { text-align: center; color: var(--arch-muted); margin-top: 80px; font-size: 15px; }
+        .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.05); border-radius: 50%; border-top-color: var(--arch-cyan); animation: spin 1s linear infinite; margin-bottom: 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .terminal-box { background: #0b0c10; padding: 16px; border-radius: 4px; font-family: monospace; border: 1px solid #2b3140; margin-top: 20px; color: #fff; user-select: text; }
+    </style>
+</head>
+<body>
+    <div class="gtk-window">
+        <header class="gtk-headerbar">
+            <div class="header-title" id="centerTitle">Arch Linux Pacman Center</div>
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchBar" class="search-input" placeholder="Search signed Pacman binaries..." disabled>
+            </div>
+            <div style="width: 40px;"></div>
+        </header>
+        <div class="window-content">
+            <aside class="gtk-sidebar" id="sidebarMenu">
+                <div class="sidebar-item active" id="menu-ALL" onclick="filterAlphabet('ALL')">
+                    <span>All Packages</span>
+                    <span class="app-count" id="count-ALL">0</span>
+                </div>
+            </aside>
+            <main class="view-stack">
+                <div id="gridContainer">
+                    <div class="apps-grid" id="appsGrid">
+                        <div class="status-message" id="globalStatus">
+                            <div class="spinner"></div>
+                            <div>Loading verified Pacman static index matrix...</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="detailContainer" class="detail-view"></div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const ARCH_MIRROR_ROOT = "https://mirrors.kernel.org/archlinux/extra/os/x86_64/";
+        const STATIC_PACMAN_JSON = "pacman_packages.json";
+
+        let PACMAN_DATABASE = [];
+        let CURRENT_VIEW_SET = [];
+        let activeChar = 'ALL';
+
+        async function initPacmanDb() {
+            try {
+                const response = await fetch(STATIC_PACMAN_JSON);
+                if (!response.ok) throw new Error("Index file missing");
+                
+                PACMAN_DATABASE = await response.json();
+                PACMAN_DATABASE.sort((a, b) => a.name.localeCompare(b.name));
+                CURRENT_VIEW_SET = [...PACMAN_DATABASE];
+
+                document.getElementById('count-ALL').textContent = PACMAN_DATABASE.length;
+                document.getElementById('searchBar').disabled = false;
+                
+                buildDynamicSidebar();
+                filterAlphabet('ALL');
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('globalStatus').innerHTML = `
+                    <div style="color:#ff6c6b; font-weight:600;">
+                        ⚠️ Initialization Error: Run your 'Daily Arch Pacman Sync' GitHub Action workflow to generate the static 'pacman_packages.json' file.
+                    </div>`;
+            }
+        }
+
+        function buildDynamicSidebar() {
+            const sidebar = document.getElementById('sidebarMenu');
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+            
+            alphabet.forEach(char => {
+                const count = PACMAN_DATABASE.filter(pkg => pkg.name.toUpperCase().startsWith(char)).length;
+                if (count > 0) {
+                    const row = document.createElement('div');
+                    row.className = 'sidebar-item';
+                    row.id = `menu-${char}`;
+                    row.onclick = () => filterAlphabet(char);
+                    
+                    const label = document.createElement('span');
+                    label.textContent = `Section ${char}`;
+                    
+                    const badge = document.createElement('span');
+                    badge.className = 'app-count';
+                    badge.textContent = count;
+                    
+                    row.appendChild(label);
+                    row.appendChild(badge);
+                    sidebar.appendChild(row);
+                }
+            });
+        }
+
+        function filterAlphabet(char) {
+            activeChar = char;
+            document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+            const targetMenu = document.getElementById(`menu-${char}`);
+            if (targetMenu) targetMenu.classList.add('active');
+            
+            document.getElementById('searchBar').value = '';
+            closeDetailView();
+
+            CURRENT_VIEW_SET = char === 'ALL' 
+                ? [...PACMAN_DATABASE] 
+                : PACMAN_DATABASE.filter(pkg => pkg.name.toUpperCase().startsWith(char));
+            
+            renderGridSegment(CURRENT_VIEW_SET);
+        }
+
+        function renderGridSegment(dataset) {
+            const grid = document.getElementById('appsGrid');
+            grid.innerHTML = '';
+
+            if (dataset.length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'status-message';
+                emptyMsg.textContent = "No packages matched the current filters.";
+                grid.appendChild(emptyMsg);
+                return;
+            }
+
+            dataset.slice(0, 250).forEach(pkg => {
+                const card = document.createElement('div');
+                card.className = 'app-card';
+                card.onclick = () => openDetailView(pkg);
+
+                const iconFallback = document.createElement('div');
+                iconFallback.className = 'app-icon-fallback';
+                iconFallback.textContent = pkg.name.charAt(0).toUpperCase();
+
+                const metaBlock = document.createElement('div');
+                metaBlock.className = 'app-meta';
+
+                const nameRow = document.createElement('div');
+                nameRow.className = 'app-name';
+                nameRow.textContent = pkg.name;
+
+                const summaryRow = document.createElement('div');
+                summaryRow.className = 'app-summary';
+                summaryRow.textContent = pkg.desc || "Verified binaries package.";
+
+                const idRow = document.createElement('div');
+                idRow.className = 'app-package-id';
+                idRow.textContent = `pacman -S ${pkg.name}`;
+
+                metaBlock.appendChild(nameRow);
+                metaBlock.appendChild(summaryRow);
+                metaBlock.appendChild(idRow);
+
+                card.appendChild(iconFallback);
+                card.appendChild(metaBlock);
+                grid.appendChild(card);
+            });
+        }
+
+        function openDetailView(pkg) {
+            document.getElementById('gridContainer').style.display = 'none';
+            const screen = document.getElementById('detailContainer');
+            screen.innerHTML = '';
+            screen.style.display = 'flex';
+
+            const backBtn = document.createElement('button');
+            backBtn.className = 'btn-back';
+            backBtn.textContent = "← Back to Packages";
+            backBtn.onclick = closeDetailView;
+
+            const headerBlock = document.createElement('div');
+            headerBlock.className = 'detail-header';
+
+            const bigIcon = document.createElement('div');
+            bigIcon.className = 'app-icon-fallback';
+            bigIcon.style.width = '96px';
+            bigIcon.style.height = '96px';
+            bigIcon.style.fontSize = '36px';
+            bigIcon.textContent = pkg.name.charAt(0).toUpperCase();
+
+            const titleBlock = document.createElement('div');
+            titleBlock.className = 'detail-title-block';
+
+            const h2 = document.createElement('h2');
+            h2.textContent = pkg.name;
+
+            const metaRow = document.createElement('div');
+            metaRow.className = 'metadata-row';
+            metaRow.textContent = `Repository: extra | Version: ${pkg.version} | Comp Weight: ${(pkg.size / 1024 / 1024).toFixed(2)} MB`;
+
+            const calculatedPoolUrl = ARCH_MIRROR_ROOT + pkg.filename;
+
+            const dlBtn = document.createElement('a');
+            dlBtn.className = 'btn-install';
+            dlBtn.href = calculatedPoolUrl;
+            dlBtn.target = '_blank';
+            dlBtn.textContent = "Download Signed Zst Binary";
+
+            titleBlock.appendChild(h2);
+            titleBlock.appendChild(metaRow);
+            titleBlock.appendChild(dlBtn);
+            headerBlock.appendChild(bigIcon);
+            headerBlock.appendChild(titleBlock);
+
+            const bodyBlock = document.createElement('div');
+            bodyBlock.className = 'detail-body';
+
+            const h3 = document.createElement('h3');
+            h3.style.marginBottom = "8px";
+            h3.textContent = "Description";
+
+            const descText = document.createElement('p');
+            descText.textContent = pkg.desc || "No package description data provided.";
+
+            if (pkg.url) {
+                const upstreamLink = document.createElement('p');
+                upstreamLink.style.marginTop = "8px";
+                upstreamLink.innerHTML = `Upstream Project URL: <a href="${pkg.url}" target="_blank" style="color:var(--arch-cyan); text-decoration:none;">${pkg.url}</a>`;
+                bodyBlock.appendChild(upstreamLink);
+            }
+
+            const terminalBox = document.createElement('div');
+            terminalBox.className = 'terminal-box';
+            
+            const commentSpan = document.createElement('span');
+            commentSpan.style.color = '#565f73';
+            commentSpan.textContent = `# Deploy securely via standard Arch system hooks:\n`;
+            
+            const cmdSpan = document.createElement('span');
+            cmdSpan.style.color = 'var(--arch-cyan)';
+            cmdSpan.textContent = `sudo pacman -Sy ${pkg.name}`;
+
+            terminalBox.appendChild(commentSpan);
+            terminalBox.appendChild(cmdSpan);
+
+            bodyBlock.insertBefore(h3, bodyBlock.firstChild);
+            bodyBlock.insertBefore(descText, h3.nextSibling);
+            bodyBlock.appendChild(terminalBox);
+
+            screen.appendChild(backBtn);
+            screen.appendChild(headerBlock);
+            screen.appendChild(bodyBlock);
+        }
+
+        function closeDetailView() {
+            document.getElementById('detailContainer').style.display = 'none';
+            document.getElementById('gridContainer').style.display = 'block';
+        }
+
+        let debounceTimer;
+        document.getElementById('searchBar').addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            const val = e.target.value.toLowerCase().trim();
+            closeDetailView();
+
+            debounceTimer = setTimeout(() => {
+                if (val.length > 0) {
+                    const matched = CURRENT_VIEW_SET.filter(pkg => 
+                        pkg.name.toLowerCase().includes(val) || 
+                        (pkg.desc && pkg.desc.toLowerCase().includes(val))
+                    );
+                    renderGridSegment(matched);
+                } else {
+                    renderGridSegment(CURRENT_VIEW_SET);
+                }
+            }, 100);
+        });
+
+        initPacmanDb();
+    </script>
+</body>
+</html>
