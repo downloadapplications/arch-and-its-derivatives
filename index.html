@@ -352,7 +352,7 @@
             const dlBtn = document.createElement('a');
             dlBtn.className = 'btn-install';
             dlBtn.href = calculatedPoolUrl;
-            dlBtn.target = '_blank';
+            dlBtn.setAttribute('download', pkg.filename); // Forces local download using filename asset
             dlBtn.textContent = "Download Signed Zst Binary";
 
             titleBlock.appendChild(h2);
