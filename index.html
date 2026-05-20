@@ -349,30 +349,38 @@
 
 const calculatedPoolUrl = ARCH_MIRROR_ROOT + pkg.filename;
 
-            // Create a clean button that doesn't use form or link navigation properties
-            const dlBtn = document.createElement('button');
-            dlBtn.type = 'button';
+            // Use a true anchor link element styled exactly like your install button
+            const dlBtn = document.createElement('a');
             dlBtn.className = 'btn-install';
-            dlBtn.style.border = 'none';
-            dlBtn.style.cursor = 'pointer';
-            dlBtn.textContent = "Download Signed Zst Binary";
+            dlBtn.href = calculatedPoolUrl;
+            dlBtn.target = '_blank';
+            dlBtn.rel = 'noopener noreferrer';
+            dlBtn.style.textDecoration = 'none';
+            dlBtn.style.display = 'inline-block';
+            dlBtn.style.textAlign = 'center';
+            dlBtn.textContent = "🌐 Open Package Stream";
 
-            // When clicked, we temporarily open a standalone isolated context to process the asset download
-            dlBtn.onclick = () => {
-                const hiddenAnchor = document.createElement('a');
-                hiddenAnchor.href = calculatedPoolUrl;
-                // Force target to an external frame context to prevent text rendering over your main view layout
-                hiddenAnchor.target = '_blank'; 
-                hiddenAnchor.rel = 'noopener noreferrer';
-                
-                document.body.appendChild(hiddenAnchor);
-                hiddenAnchor.click();
-                document.body.removeChild(hiddenAnchor);
-            };
+            // Instruction block explaining your smart .txt extension renaming hack
+            const tipBox = document.createElement('div');
+            tipBox.style.marginTop = '14px';
+            tipBox.style.padding = '12px 16px';
+            tipBox.style.background = 'rgba(23, 147, 209, 0.08)';
+            tipBox.style.borderLeft = '3px solid var(--arch-cyan)';
+            tipBox.style.borderRadius = '4px';
+            tipBox.style.fontSize = '13px';
+            tipBox.style.color = '#e0e0e0';
+            tipBox.style.lineHeight = '1.5';
+            tipBox.innerHTML = `
+                <strong>💡 Quick Download Workaround:</strong><br>
+                1. Click the button above to open the raw text stream in a new tab.<br>
+                2. Press <strong>Ctrl + S</strong> (or <strong>Cmd + S</strong>) to save the page data.<br>
+                3. Delete the trailing <code>.txt</code> from the filename to preserve the correct <code>.pkg.tar.zst</code> format!
+            `;
 
             titleBlock.appendChild(h2);
             titleBlock.appendChild(metaRow);
             titleBlock.appendChild(dlBtn);
+            titleBlock.appendChild(tipBox);
             headerBlock.appendChild(bigIcon);
             headerBlock.appendChild(titleBlock);
 
