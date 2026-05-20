@@ -1,5 +1,4 @@
 [
-,
 {"name":"0ad","version":"0.28.0-2","desc":"Cross-platform, 3D and historically-based real-time strategy game","filename":"0ad-0.28.0-2-x86_64.pkg.tar.zst","size":18331368,"url":"http://play0ad.com/"},
 {"name":"0ad-data","version":"0.28.0-1","desc":"Cross-platform, 3D and historically-based real-time strategy game (data files)","filename":"0ad-data-0.28.0-1-any.pkg.tar.zst","size":1552256621,"url":"http://play0ad.com/"},
 {"name":"389-ds-base","version":"3.2.1-1","desc":"389 Directory Server (base)","filename":"389-ds-base-3.2.1-1-x86_64.pkg.tar.zst","size":6959341,"url":"http://port389.org/"},
