@@ -349,29 +349,24 @@
 
 const calculatedPoolUrl = ARCH_MIRROR_ROOT + pkg.filename;
 
-            const dlBtn = document.createElement('a');
+            // Generate an explicit form element to handle cross-origin submission safely
+            const downloadForm = document.createElement('form');
+            downloadForm.method = 'GET';
+            downloadForm.action = calculatedPoolUrl;
+            downloadForm.style.display = 'inline-block';
+
+            // Use a true submission node inside the layout matching your styles
+            const dlBtn = document.createElement('button');
+            dlBtn.type = 'submit';
             dlBtn.className = 'btn-install';
-            dlBtn.href = '#';
+            dlBtn.style.border = 'none';
             dlBtn.textContent = "Download Signed Zst Binary";
 
-            // Bypasses CORS by routing the file path through a hidden frame
-            dlBtn.onclick = (e) => {
-                e.preventDefault();
-                
-                let iframe = document.getElementById('hidden-downloader');
-                if (!iframe) {
-                    iframe = document.createElement('iframe');
-                    iframe.id = 'hidden-downloader';
-                    iframe.style.display = 'none';
-                    document.body.appendChild(iframe);
-                }
-                
-                iframe.src = calculatedPoolUrl;
-            };
+            downloadForm.appendChild(dlBtn);
 
             titleBlock.appendChild(h2);
             titleBlock.appendChild(metaRow);
-            titleBlock.appendChild(dlBtn);
+            titleBlock.appendChild(downloadForm);
             headerBlock.appendChild(bigIcon);
             headerBlock.appendChild(titleBlock);
 
