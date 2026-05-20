@@ -178,12 +178,37 @@
         let CURRENT_VIEW_SET = [];
         let activeChar = 'ALL';
 
-        async function initPacmanDb() {
+   async function initPacmanDb() {
             try {
                 const response = await fetch(STATIC_PACMAN_JSON);
                 if (!response.ok) throw new Error("Index file missing");
                 
-                PACMAN_DATABASE = await response.json();
+                // Read the response as raw text first so we can sanitize it manually
+                let rawText = await response.text();
+                
+                // EMERGENCY SANITIZATION LAYER:
+                // Clean up any accidentally double-escaped newlines or trailing commas
+                rawText = rawText.trim();
+                if (rawText.startsWith(',\n')) {
+                    rawText = '[' + rawText.substring(2);
+                }
+                if (rawText.startsWith(',')) {
+                    rawText = '[' + rawText.substring(1);
+                }
+                
+                // Parse the completely sanitized text layout cleanly
+                PACMAN_DATABASE = JSON.parse(rawText);
+                
+                // Filter out any broken structural rows that don't possess a valid name
+                PACMAN_DATABASE = PACMAN_DATABASE.filter(pkg => pkg && pkg.name);
+
+                // Trim any trailing line break artifacts left over from awk
+                PACMAN_DATABASE.forEach(pkg => {
+                    pkg.name = pkg.name.trim();
+                    if(pkg.desc) pkg.desc = pkg.desc.trim();
+                    if(pkg.version) pkg.version = pkg.version.trim();
+                });
+
                 PACMAN_DATABASE.sort((a, b) => a.name.localeCompare(b.name));
                 CURRENT_VIEW_SET = [...PACMAN_DATABASE];
 
@@ -194,10 +219,11 @@
                 filterAlphabet('ALL');
 
             } catch (err) {
-                console.error(err);
+                console.error("Parser tracking fault:", err);
                 document.getElementById('globalStatus').innerHTML = `
-                    <div style="color:#ff6c6b; font-weight:600;">
-                        ⚠️ Initialization Error: Run your 'Daily Arch Pacman Sync' GitHub Action workflow to generate the static 'pacman_packages.json' file.
+                    <div style="color:#ff6c6b; font-weight:600; text-align:center;">
+                        ⚠️ Layout Structure Blocked: The JSON data loaded successfully, but it contains a formatting anomaly.<br>
+                        <small style="color:var(--arch-muted); font-family:monospace; display:block; margin-top:8px;">${err.message}</small>
                     </div>`;
             }
         }
